@@ -1,0 +1,89 @@
+@media print {
+  report > div{
+      page-break-after: always;
+      border-bottom:#ccc 2px solid;
+  }
+}
+
+body {
+    font-family:arial,sans-serif;
+    color:#333;
+}
+
+/*
+All announcements are done in large font*/
+.ok, .warning, .distress{
+    font-size:large;
+}
+
+/*
+Opening balance is less than 1 month's rent*/
+.ok{
+    color: lime;
+}
+/*
+Opening balance is less than 2 month's rent*/
+.warning{
+    color: gold;
+}
+
+/*
+Opening balance is more than 2 month's rent*/
+.distress{
+    color:red;
+}
+
+table{
+    font-size:12px;
+    margin:0 0 1em;
+    border-collapse:collapse;
+    border-width:0;
+    empty-cells:show;
+}
+
+/*
+The statement table*/
+.statement{
+    font-size:10px;
+}
+		  
+
+td,th {
+    border:1px solid #ccc;
+    /*padding:6px 12px;*/
+    vertical-align:top;
+    background-color:inherit;
+}
+
+th{
+    background-color:#dee8f1;
+}
+
+/*
+By default, fields are paragramgs; show then inline*/
+.field{
+    display: inline;
+    margin-left: 2%;   
+}
+
+.double, .fvalue{
+    font-style:italic;
+    color:blue;
+}
+
+.double{
+    text-align: right;
+}
+
+.name{
+   font-size:large;
+}
+
+section{ 
+    border-bottom:#ccc 1px solid;
+    margin-bottom:1%;
+}
+
+#logo{
+    display:flex;
+}
