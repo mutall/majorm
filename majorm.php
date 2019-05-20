@@ -349,14 +349,15 @@ class record_majorm extends record{
     //Set the user defined items for mutall rental. 
     function get_udf_items(){
         //
-        return [ 
+        //Register items specia to mjor m
+        return [
+            'standing_charge' => new item_standing_charge($this),
             'water' => new item_water($this)
         ];
     }                
 
 }
 
-//
 //This class supports management of the water resource for the MajorM data model.
 class item_water extends item_binary{
     //
@@ -679,7 +680,7 @@ class item_water extends item_binary{
     
     //Posting water, a binary item, involves creating new records in the 
     //storage, i.e., the water consumption table. Posting simply freezes the
-    //formular:-
+    //data derived from the formular:-
     //water.charge = water.consumption * vendor.price
     function post(){
         //
@@ -742,4 +743,126 @@ class item_water extends item_binary{
     }
 }
 
+//Service charge is done monthly, so, make sure that in a month only only one 
+//charge is valid
+class item_standing_charge extends item_binary{
+    //
+    //Service is driven by water connections and the drived data is stored as 
+    //a charge
+    function __construct(record $record) {
+        parent::__construct($record, "wconnection", "charge");
+    }
+    
+    //Save posted service charges to the storage table
+    function post(){
+        //
+        $this->query(
+        //
+        //Create the charge records to be posted...
+        "insert into "
+            //     
+            . "charge ("
+                //
+                //Specify the serrvice message fields for communicating to the 
+                //client
+                ."amount, "
+                //
+                //Link the charge to the current invoice and service
+                ."service, wconnection, invoice "
+            . ")"
+            //
+            // Select from the oster and current invoice
+            . "select "
+                // 
+                //The poster fields that match the desired messages supply the 
+                //required data.
+                ."poster.amount, "
+                //
+                //Link fields supplied by teh poster  
+                ."poster.service,"
+                ."poster.wconnection, "
+                //
+                //We need the current invoice
+                . "current_invoice.invoice "
+            . "from "
+                 //Get data come from this items's poster sql, with the following 
+                 //conditions:-
+                 . "({$this->poster()}) as poster "
+                //
+                //we need the current invoice
+                ."inner join ({$this->current_invoice()}) as current_invoice on "
+                    . "poster.client = current_invoice.client "
+            );
+    }
+    
+    //Services arre charged once a month
+    function detailed_poster($parametrized = true) {
+        //
+        return $this->chk(
+        "select "
+            //
+            //List the message data fields needed for communicating to the user 
+            //monthly through an invoice report
+            . "service.price as amount, "
+            //
+            //The client foreign key field , needed for :-
+            //a) calculating closing balances by grouping
+            //b) inner joining the generated data to current invoice 
+            //  for posting purposes. 
+            . "wconnection.client, "
+            //
+            //Identifies of a charge (excluding invoice)
+            ."service.service,"
+            . "wconnection.wconnection"
+        //    
+        . " from "
+            //
+            //The table that drives this sql is water connection
+            . "wconnection "
+             //
+             //Join to support testing of whether this service is already 
+             //charged for the month or not   
+            ."left join ({$this->charged()}) as charged on "
+                . "charged.wconnection = wconnection.wconnection "
+           //
+           //We need acces to the servive price, which service. Its a llose join         
+            . "join service "
+        . "where "
+            //Apply the client parametrized constraint, if requested        
+            . ($parametrized ? "wconnection.client = :driver " : "true ")
+            //
+            //Specify the service
+            ."and service.name = 'scharge' "                
+            //
+            //Exclude the service if it is already charged
+            ."and charged.wconnection is null "    
+        );
+    }
+    
+    //Retures charged services for the current period
+    // Services are charged once a month
+    function charged() {
+        //
+        return $this->chk(
+        "select "
+            //The water conenction is required to support further join    
+            . "charge.wconnection "
+        . "from "
+                //Charge drives this process
+                . "charge "
+                //
+                //Invoice supplies the charge's time stamp
+                . "inner join invoice on "
+                    . "charge.invoice = invoice.invoice "
+         ."where "
+            //
+            //Match the current and invoice month
+            ."month(invoice.timestamp) = month('{$this->record->invoice->timestamp}') "
+            //    
+            //Match the current and invoice year
+            ."and year(invoice.timestamp) = year('{$this->record->invoice->timestamp}') "
+        );        
+    }
+}
 
+    

@@ -109,7 +109,7 @@ abstract class item {
         return $this->record->invoice->cutoff($n);
     }
     
-    //Display the data of an item -- depending on the undelying invoice's layout 
+    //Display the data of an item -- depending on the underlying invoice's layout 
     //specification 
     function display(){//item
         //
@@ -347,11 +347,9 @@ abstract class item_unary extends item_binary {
 //This class supports management of data that is automatically generated. Such 
 //data can be wiped out without fear, as it can be re-created through posting.
 abstract class item_binary extends item {
-
     //
     //A binary item has one storage entity where the charges are posted
     public $storage;
-
     //
     public function __construct(record $record, $driver, $storage) {
         //
@@ -386,7 +384,8 @@ abstract class item_binary extends item {
     //- $parametrized - to return a parametrized sql that constrains the result to 
     //  a specific client or invoice
     //- $postage - to select all postable records or just the unpostd ones
-    function detailed_poster($parametrized = true) {
+    //This is a template to copy from for contruting binary posters
+    function detailed_poster_template($parametrized = true) {
         //
         return $this->chk(
         "select "

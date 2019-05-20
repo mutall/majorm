@@ -281,12 +281,85 @@ class layout_label extends layout{
     //Label layouts have no header
     function display_header() {}
     
-    //Show the given record in a label layout. This method is not interesting to 
-    //implement, but needs to be done to make label_layout non-abstract. This 
-    //method wil be developed to allow us to output on a thermal printer -- as 
-    //required for some vendors, e.g., MajorM data.
+    //Show the given record in a label layout. Thisis an example
+    //Opening balance   Date:2019-05-08     200
+    //Water             Previous reading    34
+    //                  Current reading     36
+    //                  Consumption         2
+    //                  Amount              240
+    //Payment           Amount              300
+    //etc                  
+    //This method will be extended to support the thermal printer
     function display_record(){
-        throw new \Exception("This method is not defined");
+        //
+        //The general layout is that of a table. Open it.
+        echo "<table>";
+        //
+        //The table will be 
+        //
+        //The data to be displayed will come from the dateiled or summary 
+        //statement
+        //
+        //The body is drived from the record being displayed
+        foreach($this->record->items as $item){
+            //
+            //Get the level of details, sumary or etailed
+            $level = $this->record->invoice->level;
+            //
+            //Use teh requested statement to drive this dislay
+            $statement = $item->statements[$level];
+            //
+            //Count the number of rows in the results; it will be used for 
+            //spaning the item column
+            $span = count($statement->results);
+            //
+            //Get the fields to be shown
+            $fields = $statement->get_show_fields();
+            //
+            //Count the number of fields
+            $nofields = count($fields);
+            //
+            //Loop through all the the result records. 
+            foreach($statement->results as $row){
+                //
+                //Set the first row indicator to true
+                $first_row = true;
+                //
+                //Loop through all the fields. We need to know when we are 
+                //outputing teh fis field, so that we can row-wise span the item 
+                //as needed
+                foreach($fields as $field){
+                    //
+                    //Each field will be output in a row
+                    echo "<tr>";
+                    //
+                    //
+                    //Ouput the item name on conditon that it is the first field
+                    if ($first_row){
+                        //
+                        //The row span depends on the count of fields in the 
+                        //statement
+                        echo "<td rowspan='$nofields'>$item->name</td>";
+                    }
+                    //
+                    //Output the field name
+                    echo "<td>$field->name</td>";
+                    //
+                    //Output the field value
+                    echo "<td>{$row[$field->name]}</td>";
+                    //
+                    //Close the output row
+                    echo "</tr>";    
+                    //
+                    //Reset the first row, as subsequent rows cannot be the first
+                    //row
+                    $first_row = false;
+                }
+            }
+        }
+        //
+        //Close teh table
+        echo "</table>";
     }
     
     //Display an items driver statement in a label format. We assume that the 
@@ -338,6 +411,115 @@ class layout_label extends layout{
     
 }
     
+//A layout suitable for the thermal printer. Srings are padded as required
+class layout_thermal extends layout_label {
+    //
+    //Width limit of the thermal printer
+    const TOTAL_WIDTH = 32;
+    
+    const ITEM_WIDTH = 7;
+    const FIELD_WIDTH = 13;
+    //
+    //The character to used for padding
+    const PADCHAR=".";
+        
+    function __construct(){
+        parent::__construct();
+    }
+    
+    //Show the given record in a label layout. Thisis an example
+    //Opening balance   Date:2019-05-08     200
+    //Water             Previous reading    34
+    //                  Current reading     36
+    //                  Consumption         2
+    //                  Amount              240
+    //Payment           Amount              300
+    //etc                  
+    //This method will be extended to support the thermal printer
+    function display_record(){
+        //
+        //The data to be displayed will come from the specified level, assuming
+        //that the record property has been set using the open tag
+        $level = $this->record->invoice->level;
+        //
+        //Visit all the items of the record being output
+        foreach($this->record->items as $item){
+            //
+            //Use the requested statement to drive this dislay
+            $statement = $item->statements[$level];
+            //
+            //Get the fields to be shown
+            $fields = $statement->get_show_fields();
+            //
+            //Loop through all the the resulting records. 
+            foreach($statement->results as $row){
+                //
+                //Set the first row indicator to true
+                $first_row = true;
+                //
+                //Loop through all the fields. We need to know when we are 
+                //outputing teh fis field, so that we can row-wise span the item 
+                //as needed
+                foreach($fields as $field){
+                    //
+                    //Ouput the item name on conditon that it is the first field
+                    if ($first_row){
+                        //
+                        //Fit the item name to the desired width
+                        echo $item->name;
+                        echo "\n";
+                        //
+                        //With space to the desired with
+                        echo $this->fit(" ", self::ITEM_WIDTH, " ");
+                    }else{
+                        //
+                        //With space to the desired with
+                        echo $this->fit(" ", self::ITEM_WIDTH, " ");
+                    }
+                    //
+                    //Fit the field name to the desired width
+                    echo $this->fit($field->name, self::FIELD_WIDTH, ".");
+                    //
+                    //The data width must be truncated to $data_with characatrs
+                    $data_width = self::TOTAL_WIDTH - (self::ITEM_WIDTH + self::FIELD_WIDTH);
+                    //
+                    //Output the value, truncating as necssary
+                    echo substr($row[$field->name], 0, $data_width);
+                    
+                    //
+                    //Close the output row
+                    echo "\n";    
+                    //
+                    //Reset the first row, as subsequent rows cannot be the first
+                    //row
+                    $first_row = false;
+                }
+            }
+        }
+    }
+    
+    //Fit teh given string to the given field width -- trimming or padding where 
+    //where necessary
+    function fit($str, $len, $separator){
+        //
+        //Get teh length of teh string
+        $strlen = strlen($str);
+        //
+        //Decide whether to truncate teh string or padd id
+        if ($strlen>$len){
+            //
+            //Trim the string by $x characters
+            return substr($str, 0, $len);
+        }
+        //
+        else{
+            //
+            return str_pad($str, $len, $separator, STR_PAD_RIGHT);
+            
+        }
+    }
+   
+}
 
 class dbase extends \PDO {
 
@@ -804,41 +986,35 @@ abstract class invoice extends page {
     //posting
     public $posted;
     //
-    //The date used for referencing this posting
-    public $date;
+    //The following 2 fields are set during the display or emailing of an 
+    //invoice.
+    //
+    //1. The level of detail to show for this invoic'es item --detailed or summary
+    public  $level; 
+    //
+    //2. The layout of this invoice
+    public $layout;
     //
     //Constants for converting credit and debit balances to amounts
     //
-    //Credit adjustments decreases teh client's balance
+    //Credit adjustments decrease the client's balance
     const credit = -1;
     //
-    //The converse is true for debits
+    //The opposite is true for debits
     const debit = 1;
     
-             
     //An invoice is characterised by:-
     //- Whether we are reporting data before or after it is posted? This in turn 
     //helps us to pick which sql of an item to use, detailed_poster or detailed 
     //report. If before, then the $posted is set to false; otherwise it is set 
     //to true.
     //-A selection criteria which limits the size of the invoice
-    //-The date by which to reference this invoice; this implies that you 
-    //cannot have more then one posting per day.
-    function __construct($posted, $criteria=null, $date=null) {
+    function __construct($posted, $criteria=null) {
         //
         $this->posted = $posted;
         //
         //The criterial for filtering data is optional
         page::try_bind_arg($this, 'criteria', $criteria);
-         //
-        //The date by which we refer to this invoice
-        if (!page::try_bind_arg($this, 'date', $date)){
-            //
-            //The default date is the current one
-            //
-            //Let the reference time stamp of this invoice be now
-            $this->date = date("Y-m-d");
-        }
         //
         //Construct the parent before anything else for the purpose of 
         //using method and properties in the construction of the child.
@@ -900,16 +1076,11 @@ abstract class invoice extends page {
     
     //Initialize this invoice with data from multiple sources, including
     //the arguements
-    function initialize($layout=null, $level=null, $monitor=null){
+    function initialize($layout=null, $level=null){
         //
         //Bind the arguments to invoice properties
         page::bind_arg($this, 'layout', $layout);
         page::bind_arg($this, 'level', $level);
-        //
-        //Invoice for monitoring is optional; by default it is false
-        if (!page::try_bind_arg($this, 'monitor', $monitor, FILTER_VALIDATE_BOOLEAN)){
-            $this->monitor=false;
-        }
         //
         //Change the layout name to the equivalent object
         //Let $obj be the desired layout object, complete with namespacing
@@ -934,16 +1105,15 @@ abstract class invoice extends page {
         $this->record->items['water']->statements['detailed']->fields['units']->is_money = false;
     }
     
-    //Display a complete invoice, guided by the folllowing arguments:-
+    //Display a complete invoice, guided by the following arguments:-
     //- The general layout of the invoice, tabular or label
     //- The index (of the detail level) to the item statemenet to use for 
     //reporting, i.e., detailed, summary, gross, etc.
-    //-Is the report used for monitoring clients aor invoiceing them
-    function display($layout=null, $level=null, $monitor=null) {//invoice
+    function display($layout=null, $level=null) {//invoice
         //
         //Initialize this invoice with data from multiple sources, including the
         //given arguments
-        $this->initialize($layout, $level, $monitor);
+        $this->initialize($layout, $level);
         //
         //Retrieve the data that drives th display
         $results = $this->query();
@@ -972,11 +1142,11 @@ abstract class invoice extends page {
     }
     
     //Send this invoice as emails of to clients.
-    function email(layout $layout=null, $level=null, $monitor=null){
+    function email(layout $layout=null, $level=null){
         //
         //Initialize this invoice with data from multiple sources, including the
         //given arguments
-        $this->initialize($layout, $level, $monitor);
+        $this->initialize($layout, $level);
         //
         //Create the emailer object, an extension of PHPMailer 
         $this->emailer = new emailer_mutall();
@@ -1033,16 +1203,12 @@ abstract class invoice extends page {
         }else{
             return 'invoice.css';
         }
-        
     }
 }
 
 //A record models a single row in an invoice page that is laid out in a
 //tabular fashion. 
 abstract class record {
-    //
-    //Primary key of the that is associated with this record. 
-    public $primarykey;
     //
     //The invoice. Either poster or report will be the parent at any creation.
     public $invoice;
@@ -1106,7 +1272,7 @@ abstract class record {
                 //Excute the statement (with a bound primarykey)
                 $statement->execute();
                 //
-                //Fetch the statement's data 
+                //Fetch all the statement's data 
                 $results = $statement->stmt->fetchAll();
                 //
                 //Save the results internally for further refereces 
@@ -1189,11 +1355,11 @@ abstract class record {
         //
         //It does. Do it.
         //
-        //Open the record (tag) plus all the attributes of eh invoice
+        //Open the record (tag) plus all the attributes of the invoice
         $layout->open_record($this);
         //
-        //Display the record; this can be a simple tabular or label lauyout or
-        //a much more complex layout, e.g., layout_mutall
+        //Display the record; this can be a simple tabular layout, label layout 
+        //or a much more complex layout, e.g., layout_mutall
         $layout->display_record();
         //
         //Close the record (tag) -- depending on the layout.
@@ -1282,7 +1448,9 @@ abstract class poster extends invoice {
     //to roll back time .
     public $has_future;
     //
-    //The future cuotff date. All current data must be dated before the future
+    //The future cuotff date. All current data must be dated before the future.
+    //This boolean field is used for excluding future data from current invoice
+    //computatations without having to remove such data from the database 
     public $future_date;
     //
     //The invoice timestanp allows us distinguish current_invoice() from 
@@ -1290,14 +1458,22 @@ abstract class poster extends invoice {
     //is available. It is also used for identifying an invoice
     public $timestamp;
     //
-    public function __construct($future_date=null) {
+    public function __construct($future_date=null, $timestamp=null) {
         //
-        //The future date filter is optional
+        //The filter for excluding future data is optional
         $this->has_future = 
             page::try_bind_arg($this, 'future_date', $future_date) ? true:false;
         //
-        //Let the current time be the timestamp for this invoice
-        $this->timestamp = date('Y-m-d H:i:s'); 
+        //The invoic'es timestamp is optional. This feature is provided so that
+        //users can post invoices ahead of time, For instance, you may want to
+        //releas next month's invoices today -- the 25th of may -- which may
+        //be the practice with some organizations. It is also important for 
+        //testing purposes
+        if (page::try_bind_arg($this, 'timestamp', $timestamp)){
+            //
+            //The default is the current time stamp
+            $this->timestamp = date('Y-m-d H:i:s'); 
+        }
         //
         //A poster invoice presents data that has not been posted. 
         //This is important for selecting the driver sql 
@@ -1476,7 +1652,6 @@ abstract class report_schedule extends report {
 
 }
 
-//
 abstract class report_sms extends report {
 
     //
@@ -1492,16 +1667,17 @@ abstract class report_sms extends report {
 //Modelling a custom statement for driving an invoice
 class statement{
     //
-    //The PDO::statement 
-    public $stmt;
+    //The results of executing this sttaement, as a dually indexed array. This 
+    //is populated during display or emailing of an invoice
+    public $results;
     //
-    //The sql used for preparing this statement
-    public $sql;
+    //The PDO::PDOstatement that is used for carrying out PDO functions. It is 
+    //needed for pulating a record with fetched data.
+    public $stmt;
     //
     function __construct(item $item, $sql){
         //
         $this->item = $item;
-        $this->sql = $sql;
         //
         //Retrieve the item's database
         $dbase = $item->record->invoice->dbase;
@@ -1555,19 +1731,14 @@ class statement{
         return $fields;
     }
 
-    //
-    //Prepare the given statement using the given sql. Create, from the prpared
-    //statement, the fields of the requested type, where type is either detailed 
-    //summary
-    function set_fields(){
-        //
-    }
     
-    //Display this statement's data depending on whether its results yields 
-    //a single, multiple or no record
+    //Display this statement's data depending on whether its result yields
+    //a single record, multiple records or none. Single records are shown 
+    //in a labeld fashion; multiple records as a table. 
+    //table
     function display(){//statement    
         //
-        //Count the no. of records in this statement's results
+        //Count the number of records in this statement's results
         $norecs = count($this->results);
         //
         //If the results is empty, do nothing
@@ -1579,7 +1750,7 @@ class statement{
         //If there is only one record, then use then... 
         elseif ($norecs == 1){
             //
-            //use the label format to display the result...
+            //...use the label format to display the result...
             $local_layout = new layout_label();
         }else{
             //
@@ -1587,16 +1758,16 @@ class statement{
             $local_layout = new layout_tabular();
         }
         //
-        //Open the item as a block with 1% top magin 
+        //Open the item as a block with 1% top magin (see the invoice.css) 
         echo "<div class='item'>";
         //
         //Output the item's name as a label -- if the global layout is indeed
-        //label
+        //label. Global means the layout specifeid on the invoice
         $global_layout = $this->item->record->invoice->layout;
         //
         if ($global_layout->show_label){
             //
-            //Show the item name as a block with color green
+            //Show the item name as a block with color green (see invoice.css)
             echo "<p class='name'>"
             . $this->item->name
             . "</p>";
@@ -1613,10 +1784,10 @@ class statement{
     //Executing the statement
     function execute(){
         //
-        //Get tej primary key of client or invoice driver
+        //Get the primary key of client or invoice driver
         $primarykey = $this->item->record->invoice->primarykey;
         //
-        //Execute teh statement
+        //Execute the statement
         $result = $this->stmt->execute([":driver"=>$primarykey]);
         //
         //Test for errors
