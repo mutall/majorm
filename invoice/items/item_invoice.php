@@ -72,17 +72,16 @@ class item_invoice extends item_binary{
             "select "
                 //Key messages from an invoice:-
                 //
-                //The full name of of the client; be careful that the vendor name 
-                //is not mistaken for an attribute
-                ."vendor.name as vendor_name, "
+                //The full name of (user) vendor
+                ."user_vendor.name as vendor_name, "
                 //
-                //Full name of the client
-                ."client.name, "
+                //Full name of (user) client
+                ."user_client.name as client_name, "
                 //
                 //A short client id used for bank transaction. 
                 ."$client_code as code, " 
                 //
-                //Report on the invoice's time stamp
+                //The current date for this invoice.
                 . "'{$this->record->invoice->timestamp}' as timestamp, "
                 //
                 //Design a reference code for the invoice -- if there is no 
@@ -100,8 +99,18 @@ class item_invoice extends item_binary{
                 //
                 //The driver for this the client table
                 ."client "
+                //
+                //Client is a user
+                ."inner join user as user_client on "
+                        . "client.user = user_client.user "
+                //
+                //Brinin in the vednor        
                 . "inner join vendor on "
                     . "client.vendor = vendor.vendor "
+                //
+                //Vendor is another user
+                ."inner join user as user_vendor on "
+                        . "vendor.user = user_vendor.user "
                 //
                 //We need access to  the zone; it may not be avaiable
                 ."left join zone on "
@@ -165,6 +174,33 @@ class item_invoice extends item_binary{
         
     }
 
+     //Unposting of invoices removes the last posted records except
+     //those that are linked yo initial balances.
+    function unpost() {
+        //
+        $this->query(
+            "delete "
+                //
+                //We are all the invoices
+                . "invoice.* "
+            . "from "
+                //
+                ."invoice "
+                
+                //Bring in the last invoices
+                ."inner join ({$this->record->invoice->last_invoice()}) as last_invoice on "
+                . "last_invoice.invoice = invoice.invoice "
+                //
+                //Bring in the closing balaces associated with the last nvoicve
+                . "inner join closing_balance on "
+                    . "closing_balance.invoice = last_invoice.invoice "
+            //
+            //Exclude invoices linked to the initial balances            
+            . "where "
+                . "not (closing_balance.initial)"
+        );       
+    }
+    
     
 }
 

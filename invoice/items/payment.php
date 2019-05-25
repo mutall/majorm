@@ -15,10 +15,6 @@ class item_payment extends item_unary{
         //
         return $this->chk(
             "select "
-                //Primary and foreign keys
-                //
-                //The primary key needed for summarizing bclosing balancee
-                ."payment.client, "
                 //
                 //The key payment messages to be communicated to the client 
                 //through the monthly invoice report are:-
@@ -26,11 +22,18 @@ class item_payment extends item_unary{
                 //The acutal date when the amount was paid
                 ."payment.date, "
                 //
-                //The amount paid; it is a credit amount
-                ."payment.amount * ".invoice::credit." as amount, "
-                //
                 //The receipt reference number, i.e., cheque no, mpesa, etc.
-                ."payment.ref "
+                ."payment.ref, "
+                //
+                //The amount paid; it is a credit amount -- so we expect the 
+                //usee to enter it as a negative amount. This can be enforced
+                //by a suitable user interface
+                ."payment.amount, "
+                //
+                //Primary and foreign keys
+                //
+                //The primary key needed for summarizing bclosing balancee
+                ."payment.client "
             //
             //The remaider of the sql the similar for all unary items
             ."FROM "

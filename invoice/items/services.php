@@ -55,19 +55,6 @@ class item_service extends item_binary {
         $this->advance=true;
     }
     
-    //Returns the least start date of a client's agreement...for what?
-    function agreement(){
-        return $this->chk(
-            "select "
-                . "agreement.client, "
-                . "min(agreement.start_date) as start_date "
-            . "from "
-                . "agreement "
-            . "group by "
-                . "agreement.client"
-        );        
-    }    
-    
     //Returns the all the unclasified charges associated with unstructured 
     //services. These charges are based on intuition and client/tenant agreement
     //In contrast water, electricity and rent are charges derived from some raw 
@@ -97,11 +84,11 @@ class item_service extends item_binary {
                 //Client Messages to report:- 
                     ."service.name, "
                     //
-                    //The amount to be charged
-                    ."$amount as amount, " 
-                    //
                     //Identify the water connection 
                     . "wconnection.meter_no, "
+                    //
+                    //The amount to be charged
+                    ."$amount as amount, " 
                     //
                     //Keys needed for supporting this binary item
                     //
@@ -127,17 +114,30 @@ class item_service extends item_binary {
                 //
                 ."join service "
                 //
-                //Add support for testing subscription
+                //Add support for testing whether a servive is subscribed or not
                 ."left join subscription on "
                     ."subscription.service = service.service "
-                    . "and subscription.wconnection = wconnection.wconnection " 
+                    . "and subscription.wconnection = wconnection.wconnection "
+                //
+                //Add charged to support the "charge service once per month" rule 
+                //-- especially when there are multiple postings in a month
+                . "left join ({$this->charged()}) as charged on "
+                    . "charged.wconnection = wconnection.wconnection "
+                    . "and charged.service = service.service " 
             ."where "
                 //        
                 //Apply the client parametrized constraint, if requested        
                 . ($parametrized ? "client.client = :driver ": "true ")
                 //
-                //Exclude null services
-                . "and ($amount) is not null"
+                //Exclude null service amounts
+                . "and ($amount) is not null "
+                //
+                //Only active, i.e., not closed, connections are considered
+                . "and wconnection.end_date is null "
+                //
+                //Enforce the "charge once per month" rule b applying the charge
+                //to the services that have not yest been charged.        
+                . "and charged.service is null"
                         
         );
     }
@@ -184,6 +184,43 @@ class item_service extends item_binary {
                 //Only non-identifiers feature in an on duplicate clause            
                 . "on duplicate key update "
                     . "amount = values(amount) "
+        );        
+    }
+    
+    //Returns serivices that have already been charged for the current period, to
+    //enforce the "charge once per month" rule when multiple postings are done
+    //in a month.
+    function charged() {
+        //
+        return $this->chk(
+        "select "
+            //    
+            //The service in question
+            ."service.service, "
+            //
+            //The water conennction is required a left join to this query to 
+            //allow us determine if the connection has been charged or not
+            . "charge.wconnection "
+        . "from "
+                //The charge table drives this process
+                ."charge "
+                //
+                //Bring in the service in question
+                ."inner join service on charge.service = service.service "
+                //
+                //Invoice supplies the charge's timestamp
+                . "inner join invoice on charge.invoice = invoice.invoice "
+         ."where "
+            //
+            //Match the current and invoice month
+            ."month(invoice.timestamp) = month('{$this->record->invoice->timestamp}') "
+            //    
+            //Match the current and invoice year
+            ."and year(invoice.timestamp) = year('{$this->record->invoice->timestamp}') "
+            //
+            //Exclude the current invoice -- to correct for the partial posting
+            //problem
+            . "and (not invoice.timestamp = '{$this->record->invoice->timestamp}')"
         );        
     }
         

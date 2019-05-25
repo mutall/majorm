@@ -485,8 +485,10 @@ abstract class item_binary extends item {
 
     
     
-    //Unposting of a binary item simply removes its storage records from the
-    //database. Which ones? The last posted ones.
+    //Unposting of a binary item simply removes the last posted storage records 
+    //from the database unconditionally. If tehre are special conditions for an
+    //item, the item has to ovveride this method. For instance in the case of 
+    //closing_balances initial entries are never unposted.
     function unpost() {
         //
         //For debugging; this variable allows us to inpect the delete sql 
@@ -510,8 +512,8 @@ abstract class item_binary extends item {
                     //
                     . "$this->storage "
                     //
-                    //Bring in the last invoice. (The current one cannot be used
-                    //for that purpose as its timestamp is indeterminate)
+                    //Bring in the last invoice. Yes you are unposting the last
+                    //posted case. 
                     . "inner join ({$this->record->invoice->last_invoice()}) as last_invoice on "
                         . "$this->storage.invoice = last_invoice.invoice ";
                    

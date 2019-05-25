@@ -73,270 +73,6 @@ class emailer_majorm extends emailer{
     
 }
 
-//Model a invoice report to be printed a normally, i.e., on A4 paper
-//using a color printer implying heavy use of CSS.
-class layout_majorm extends layout_label {
-    //
-    function __construct() {
-        parent::__construct();
-    }
-    
-    //Show this underlying rcords data in on all the 5 sections of a labeled report
-    function display_record() {
-        //
-        //Show the logo will all its supporting labels
-        $this->show_record_logo();
-        //
-        //Use the invoice item to display the identification section of the
-        //report
-        echo "<section>";
-        echo "<p class='name'>Client Identification</p>";
-        //
-        //Let $ds be the detailed statement of an invoice item
-        $ds = $this->record->items['invoice']->statements['detailed'];
-        //
-        //Let $ll be the a label layout
-        $ll = new layout_label();
-        //
-        //Display the invoice detailed in a label layout
-        $ll->display_statement($ds);
-        echo "</section>";
-        //
-        //Use all the remaining items to show the report summary debit/credit
-        //table, including teh closing balance with its double lines.
-        $this->show_record_summary();
-        //
-        //Use all the remaining items to show the report details of each
-        //item laid out in a label format, where only one record is involed,
-        $this->show_record_detailed();
-        //
-        //Show the announcements, i.e., notes
-        $this->show_record_announcements();
-    }
-    
-    //Show the company logo and address.
-    function show_record_logo(){
-        //
-        //Output the Logo image plus associated text
-        echo 
-        "<section id='logo'>"
-            . "<img "
-                . "src='logo.jpg'"
-                . "style='width:150px; height:100px'"
-                . "/>"
-            . "Mutall Investment Co. Ltd. <br/>"
-            . "P.O. Box 374<br/>"
-            . "Kiserian - 00206 <br/>"
-            . "email: mutallcompany@gmail.com<br/>"
-            . "contact:Wycliffe on 0727 203 769<br/><br/>"
-            .date("jS M Y"). "<br/>"
-        ."</section>";
-        //
-        //Show the type of this document: invoice or statement, as a complete 
-        //reference
-        //
-        //Let $ref be the reference to ths document
-        $ref = [];
-        //
-        //Test if there is any previus posting
-        if ($this->record->try_ref($ref)){
-            //
-            //There is. Report it
-            echo 
-            "<div>"
-            . "{$ref['type']}<p>REF: {$ref['code']}</p>"
-            . "</div>";
-        }else{
-            //There is none.Report the situation
-            echo 
-            "<div>"
-            . "No posted data found for this period"
-            . "</div>";
-        }
-    }
-    
-    //Use all the items of a record, other than invoice, to show the report 
-    //details of each item laid out in a label format, where only one record 
-    //is involed,
-    function show_record_summary() {
-        //
-        echo "<section>";
-        echo "<p class='name'>Summary</p>";
-        //
-        //Print a table tag.
-        echo "<table>";
-        //
-        //Step through all the items of a record and display each one of them.
-        foreach ($this->record->items as $key => $item) {
-            //
-            //Exclude the invoice.
-            if ($key !== 'invoice') {
-                //
-                //Get teh summary data from the item and show in the label forma.
-                $this->show_record_summary_item($item);
-            }
-        }
-        //
-        //Close the table.
-        echo "</table>";
-        echo "</section>";
-        //
-    }
-    
-    //Display the summary data of the given item in a tabular layout
-    function show_record_summary_item(item $item) {
-        //
-        //Condition for displaying a summary arecord are:-
-        //a) the summary must exist
-        //b) the amount is not null
-        $valid = (count($item->statements['summary']->results)>0) 
-            && (!is_null($item->statements['summary']->results[0][0]));  
-        //
-        //Only cases with data will be shown
-        if ($valid){
-            //
-            //Get the data
-            //
-            //Let $x be the amount to display. Only one result is expected
-            $x =  $item->statements['summary']->results[0][0];
-            //
-            //Format it as an amount, i/r., no decimal and a thousand separator.
-            $amount = number_format($x);   
-            //
-            //Show the data
-            //
-            echo "<tr name='$item->name'>";
-            //
-            //Now show the data
-            echo "<td>";
-                echo $item->name;
-            echo "</td>";
-            //
-            //The values should be right aligned
-            echo "<td class='double'>";
-                //
-                //Format the amount to currency
-                echo $amount;
-            echo "</td>";
-            //
-            //Close tr.
-            echo "</tr>";
-        }
-    }
-
-    //Use all the remaining items to show the report details of each
-    //item laid out in a label format, where only one record is involed,
-    function show_record_detailed() {
-        //
-        echo "<section>";
-        //
-        echo "<name>Details</name>";
-        //
-        //Step through all the items of a record and display each one of them.
-        foreach ($this->record->items as $key => $item) {
-            //
-            //Exclude the invoice.
-            if ($key !== 'invoice') {
-                //
-                //Show the item's data -- depnding on the number of records and
-                //fields
-                $item->display($this); 
-            }
-        }
-        echo "</section detailed>";
-        
-    }
-    
-    //Show announcements on a record; that depends on the source of the normal report
-    function show_record_announcements(){
-        //
-        //We assume that the the open_record($record) funstion is called before
-        //making reference to $this->record
-        //
-        //First, test if here is posted data; if none return
-        if (!isset($this->record->items['rent']->statements['detailed']->results[0])){
-           return;     
-        }
-        //
-        //Output the announcements
-        //
-        echo "<section>";
-        //
-        //Let $r be the rental value of the earliest agreement
-        $r = $this->record->items['rent']->statements['detailed']->results[0]['price'];
-        //
-        //Let $a be the arrears
-        $a = $this->record->get_arrears();
-        //
-        //Let $f be 1 for monthly and 3 for quaterly clients
-        $f = $this->record->result['quarterly'] ? 3: 1;
-        //
-        //Let x be the no. of rental amounts in the opening balance, taking $f
-        //into account 
-        $x = $a/($r * $f);
-        //
-        //An upto-date acccount; thanks
-        if ($a<=0){
-            echo
-            "<p class='ok'>"
-            . "This account is very upto-date. Thank you."
-            . "</p>";
-        }
-        //A well maintained account with a little balance
-        elseif ($x<1){
-            echo 
-            "<p class='ok'>"
-            . "This account is well maintained. Please clear the outstanding balance to make it perfect."
-            . "</p>";
-        }
-        //
-        //Arrears less that 2 months old
-        elseif ($x>=1 and $x<2){
-            echo
-            "<p class='warning'>"
-            . "This account is ok, but you have arrears that is more than your rental amount. Please clear the outstanding balance."
-            . "</p>";
-        }
-        //
-        //Arrears more than 2 months old is distressful
-        else{
-            //Format the x
-            $fx = number_format($a/$r);
-            //
-            //This is a distress situation
-            echo 
-            "<p class='distress'>"
-            . "Your account is in arrears of Ksh "
-            . number_format($a)
-            . " which is close to $fx times the rental amount of Ksh $r. "
-            . "Please regularise it. This is the last request before we start "
-            . "instituting measures to recover the current outstanding balance of "
-            . number_format($this->record->items['closing_balance']->statements['summary']->results[0][0])
-            . ".</p>";
-        }
-        //
-        //Get the client code for announcement purposes
-        $code = $this->record->items['invoice']->statements['detailed']->results['0']['id'];
-        //
-        echo 
-        "Make all cheques payable to Mutall Investments Co. Ltd<br/>"
-        . "<br/>"
-        . "Coop Bank-Kiserian<br/>"
-        . "A/c No: 011 485 839 41800<br/>"
-        . "OR<br/>"
-        . "Kenya Commercial Bank-Kiserian<br/>"
-        . "A/c No: 111 971 8260<br/>"
-        . "<br/>"
-        . "Please indicate your client code, <strong>$code</strong>, as the reference on "
-                . "the banking slip<br/>";
-        
-        echo "</section>";
-        
-    }
-    
-}
-
-
 //Modelling an invoice record
 class record_majorm extends record{
     //
@@ -346,12 +82,12 @@ class record_majorm extends record{
         parent::__construct($invoice);
     }
     
-    //Set the user defined items for mutall rental. 
+    //Set the user defined items for water vendors. 
     function get_udf_items(){
         //
-        //Register items specia to mjor m
         return [
-            'standing_charge' => new item_standing_charge($this),
+            //
+            //Water is the key sales item for water vendors
             'water' => new item_water($this)
         ];
     }                
@@ -448,6 +184,9 @@ class item_water extends item_binary{
                 //        
                 //Apply the client parametrized constraint, if requested        
                 . ($parametrized ? "wconnection.client = :driver ": "true ")
+                //
+                //Only activ connections are considred
+                ."and wconnection.end_date is null "            
         );
     }
     
@@ -626,8 +365,9 @@ class item_water extends item_binary{
     }
     
     //Returns the current dates of a water readings for each connection. Current
-    //date is defined as the highest date for current readings per connection. 
-    //A current reading is neither futuristic nor historical.
+    //date is defined as the highest date for current readings per connection.
+    //Current date cannot be the same as the previous date. 
+    //A current means neither futuristic nor historic.
     function curr_date(){
         //
         $sql = $this->chk(
@@ -650,7 +390,14 @@ class item_water extends item_binary{
                 //current readings are considered)
                 ."left join ({$this->record->invoice->last_invoice()}) as last_invoice on "
                     . "last_invoice.client = wconnection.client "
-               
+                //
+                //Access the previous date to upport the rule that current date
+                //can never be the same as the current date. The must always be 
+                //a pevious date for there to be a current one; so its an inner
+                //join        
+                . "inner join ({$this->prev_date()}) as prev_date on "
+                    . "prev_date.wconnection=wconnection.wconnection "
+                        
             ."where "
                 //
                 //Filter out future readings (that may be in the database). This
@@ -659,13 +406,16 @@ class item_water extends item_binary{
                         ? "wreading.date<'{$this->record->invoice->future_date}' "
                         :"true "
                    )
-                
                 //
                 //Filter out historical readings -- if applicable
                 ."and if (last_invoice.invoice is null, "
                         . "true, "
                         . "wreading.timestamp>=last_invoice.timestamp "
                       .") "
+                //
+                //Apply the rule: Current date cannot be the same as the previous
+                //one
+                ."and not (wreading.date=prev_date.value) "                
                         
             ."group by "
                 //        
@@ -742,127 +492,4 @@ class item_water extends item_binary{
         );
     }
 }
-
-//Service charge is done monthly, so, make sure that in a month only only one 
-//charge is valid
-class item_standing_charge extends item_binary{
-    //
-    //Service is driven by water connections and the drived data is stored as 
-    //a charge
-    function __construct(record $record) {
-        parent::__construct($record, "wconnection", "charge");
-    }
-    
-    //Save posted service charges to the storage table
-    function post(){
-        //
-        $this->query(
-        //
-        //Create the charge records to be posted...
-        "insert into "
-            //     
-            . "charge ("
-                //
-                //Specify the serrvice message fields for communicating to the 
-                //client
-                ."amount, "
-                //
-                //Link the charge to the current invoice and service
-                ."service, wconnection, invoice "
-            . ")"
-            //
-            // Select from the oster and current invoice
-            . "select "
-                // 
-                //The poster fields that match the desired messages supply the 
-                //required data.
-                ."poster.amount, "
-                //
-                //Link fields supplied by teh poster  
-                ."poster.service,"
-                ."poster.wconnection, "
-                //
-                //We need the current invoice
-                . "current_invoice.invoice "
-            . "from "
-                 //Get data come from this items's poster sql, with the following 
-                 //conditions:-
-                 . "({$this->poster()}) as poster "
-                //
-                //we need the current invoice
-                ."inner join ({$this->current_invoice()}) as current_invoice on "
-                    . "poster.client = current_invoice.client "
-            );
-    }
-    
-    //Services arre charged once a month
-    function detailed_poster($parametrized = true) {
-        //
-        return $this->chk(
-        "select "
-            //
-            //List the message data fields needed for communicating to the user 
-            //monthly through an invoice report
-            . "service.price as amount, "
-            //
-            //The client foreign key field , needed for :-
-            //a) calculating closing balances by grouping
-            //b) inner joining the generated data to current invoice 
-            //  for posting purposes. 
-            . "wconnection.client, "
-            //
-            //Identifies of a charge (excluding invoice)
-            ."service.service,"
-            . "wconnection.wconnection"
-        //    
-        . " from "
-            //
-            //The table that drives this sql is water connection
-            . "wconnection "
-             //
-             //Join to support testing of whether this service is already 
-             //charged for the month or not   
-            ."left join ({$this->charged()}) as charged on "
-                . "charged.wconnection = wconnection.wconnection "
-           //
-           //We need acces to the servive price, which service. Its a llose join         
-            . "join service "
-        . "where "
-            //Apply the client parametrized constraint, if requested        
-            . ($parametrized ? "wconnection.client = :driver " : "true ")
-            //
-            //Specify the service
-            ."and service.name = 'scharge' "                
-            //
-            //Exclude the service if it is already charged
-            ."and charged.wconnection is null "    
-        );
-    }
-    
-    //Retures charged services for the current period
-    // Services are charged once a month
-    function charged() {
-        //
-        return $this->chk(
-        "select "
-            //The water conenction is required to support further join    
-            . "charge.wconnection "
-        . "from "
-                //Charge drives this process
-                . "charge "
-                //
-                //Invoice supplies the charge's time stamp
-                . "inner join invoice on "
-                    . "charge.invoice = invoice.invoice "
-         ."where "
-            //
-            //Match the current and invoice month
-            ."month(invoice.timestamp) = month('{$this->record->invoice->timestamp}') "
-            //    
-            //Match the current and invoice year
-            ."and year(invoice.timestamp) = year('{$this->record->invoice->timestamp}') "
-        );        
-    }
-}
-
     

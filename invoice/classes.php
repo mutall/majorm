@@ -410,6 +410,220 @@ class layout_label extends layout{
     }
     
 }
+
+//The detailed layout is a combination of tabular and label layouts -- tabular
+//for summaries and label for the details. It has no header, so it inheits the
+//label layout
+class layout_summary_detail extends layout_label {
+    //
+    function __construct() {
+        parent::__construct();
+    }
+    
+    //Show this underlying rcords data in on all the 5 sections of a labeled report
+    function display_record() {
+        //
+        //Show the logo will all its supporting labels
+        $this->show_record_logo();
+        //
+        //Use the invoice item to display the identification section of the
+        //report
+        echo "<section>";
+        echo "<p class='name'>Client Identification</p>";
+        //
+        //Let $ds be the detailed statement of an invoice item
+        $ds = $this->record->items['invoice']->statements['detailed'];
+        //
+        //Let $ll be the a label layout
+        $ll = new layout_label();
+        //
+        //Display the invoice detailed in a label layout
+        $ll->display_statement($ds);
+        echo "</section>";
+        //
+        //Use all the remaining items to show the report summary debit/credit
+        //table, including teh closing balance with its double lines.
+        $this->show_record_summary();
+        //
+        //Use all the remaining items to show the report details of each
+        //item laid out in a label format, where only one record is involed,
+        $this->show_record_detailed();
+        //
+        //Show the announcements, i.e., notes
+        $this->show_record_announcements();
+    }
+    
+    //Show the company logo and address.
+    function show_record_logo(){
+        //
+        //Output the Logo image plus associated text
+        echo 
+        "<section id='logo'>"
+            . "<img "
+                . "src='logo.jpg'"
+                . "style='width:150px; height:100px'"
+                . "/>"
+            . "Mutall Investment Co. Ltd. <br/>"
+            . "P.O. Box 374<br/>"
+            . "Kiserian - 00206 <br/>"
+            . "email: mutallcompany@gmail.com<br/>"
+            . "contact:Wycliffe on 0727 203 769<br/><br/>"
+            .date("jS M Y"). "<br/>"
+        ."</section>";
+        //
+        //Show the type of this document: invoice or statement, as a complete 
+        //reference
+        //
+        //Let $ref be the reference to ths document
+        $ref = [];
+        //
+        //Test if there is any previus posting
+        if ($this->record->try_ref($ref)){
+            //
+            //There is. Report it
+            echo 
+            "<div>"
+            . "{$ref['type']}<p>REF: {$ref['code']}</p>"
+            . "</div>";
+        }else{
+            //There is none.Report the situation
+            echo 
+            "<div>"
+            . "No posted data found for this period"
+            . "</div>";
+        }
+    }
+    
+    //Use all the items of a record, other than invoice, to show the report 
+    //details of each item laid out in a label format, where only one record 
+    //is involed,
+    function show_record_summary() {
+        //
+        echo "<section>";
+        echo "<p class='name'>Summary</p>";
+        //
+        //Print a table tag.
+        echo "<table>";
+        //
+        //Step through all the items of a record and display each one of them.
+        foreach ($this->record->items as $key => $item) {
+            //
+            //Exclude the invoice.
+            if ($key !== 'invoice') {
+                //
+                //Get teh summary data from the item and show in the label forma.
+                $this->show_record_summary_item($item);
+            }
+        }
+        //
+        //Close the table.
+        echo "</table>";
+        echo "</section>";
+        //
+    }
+    
+    //Display the summary data of the given item in a tabular layout
+    function show_record_summary_item(item $item) {
+        //
+        //Condition for displaying a summary arecord are:-
+        //a) the summary must exist
+        //b) the amount is not null
+        $valid = (count($item->statements['summary']->results)>0) 
+            && (!is_null($item->statements['summary']->results[0][0]));  
+        //
+        //Only cases with data will be shown
+        if ($valid){
+            //
+            //Get the data
+            //
+            //Let $x be the amount to display. Only one result is expected
+            $x =  $item->statements['summary']->results[0][0];
+            //
+            //Format it as an amount, i/r., no decimal and a thousand separator.
+            $amount = number_format($x);   
+            //
+            //Show the data
+            //
+            echo "<tr name='$item->name'>";
+            //
+            //Now show the data
+            echo "<td>";
+                echo $item->name;
+            echo "</td>";
+            //
+            //The values should be right aligned
+            echo "<td class='double'>";
+                //
+                //Format the amount to currency
+                echo $amount;
+            echo "</td>";
+            //
+            //Close tr.
+            echo "</tr>";
+        }
+    }
+
+    //Use all the remaining items to show the report details of each
+    //item laid out in a label format, where only one record is involed,
+    function show_record_detailed() {
+        //
+        echo "<section>";
+        //
+        echo "<name>Details</name>";
+        //
+        //Step through all the items of a record and display each one of them.
+        foreach ($this->record->items as $key => $item) {
+            //
+            //Exclude the invoice.
+            if ($key !== 'invoice') {
+                //
+                //Show the item's data -- depnding on the number of records and
+                //fields
+                $item->display($this); 
+            }
+        }
+        echo "</section detailed>";
+        
+    }
+    
+    //Show announcements on a record; that depends on the source of the normal report
+    function show_record_announcements(){
+        //
+        echo "<section>";
+        echo "<p>Announcements</p><br/>";
+        //
+        //List all the active here. Active means that the current invoice 
+        //timestamp is between the start and end date of the message
+        //                  invoive.timestamp
+        //----|-------------|-------------------|------------
+        //     msg.start_date                  msg.end_date
+        //     
+        //Put the address of the vendor here
+        //
+        //Get the vendor name account code data from the current record, 
+        //invoice item.
+        $invoice = 
+            $this-> record->items['invoice']->statements['detailed']->results[0];
+        //
+        $code = $invoice['code'];
+        $vendor_name=$invoice['vendor_name'];
+        //
+        echo 
+        "Make all cheques payable to $vendor_name<br/>"
+        . "<br/>"
+        ."Account number(s):-"        
+        . "<br/>"
+        . "<br/>"
+        . "Please indicate your client code, <strong>$code</strong>, as the reference on "
+                . "the banking slip<br/>";
+        
+        echo "</section>";
+        
+    }
+    
+}
+
+
     
 //A layout suitable for the thermal printer. Srings are padded as required
 class layout_thermal extends layout_label {
@@ -1454,8 +1668,10 @@ abstract class poster extends invoice {
     public $future_date;
     //
     //The invoice timestanp allows us distinguish current_invoice() from 
-    //last_invoice() DURING POSTING posting when a partialy completed invoice 
-    //is available. It is also used for identifying an invoice
+    //last_invoice() DURING POSTING when a partialy completed invoice 
+    //is available. This is critical; without it closing balances, among other
+    //calculaions are impposible to compute. 
+    //It is also used for identifying an invoice.
     public $timestamp;
     //
     public function __construct($future_date=null, $timestamp=null) {
@@ -1464,12 +1680,12 @@ abstract class poster extends invoice {
         $this->has_future = 
             page::try_bind_arg($this, 'future_date', $future_date) ? true:false;
         //
-        //The invoic'es timestamp is optional. This feature is provided so that
+        //The invoice's timestamp is optional. This feature is provided so that
         //users can post invoices ahead of time, For instance, you may want to
-        //releas next month's invoices today -- the 25th of may -- which may
+        //release next month's invoices today -- the 25th of may -- which may
         //be the practice with some organizations. It is also important for 
         //testing purposes
-        if (page::try_bind_arg($this, 'timestamp', $timestamp)){
+        if (!(page::try_bind_arg($this, 'timestamp', $timestamp))){
             //
             //The default is the current time stamp
             $this->timestamp = date('Y-m-d H:i:s'); 
@@ -1511,6 +1727,9 @@ abstract class poster extends invoice {
                 //Filter to see only those clients with water connections 
                 . "inner join wconnection "
                     . "on wconnection.client = client.client "
+                //
+                //To allow access to the details of a client, bring in the user
+                ."inner join user on client.user = user.user " 
             //
             . "where "
                 //
@@ -1521,7 +1740,7 @@ abstract class poster extends invoice {
                 ."$criteria "
             //
             //The ordering s important for Vamilus navigation method    
-            . "order by client.name"     
+            . "order by user.name"     
         );
     }
     

@@ -9,6 +9,7 @@ namespace invoice;
 //b) closing_balance as the storage table for the posted items
 class item_closing_balance extends item_binary {
     //
+    //Construct a closing balance using a parent record 
     public function __construct($record) {
         //
         parent::__construct($record, "client", "closing_balance");
@@ -162,6 +163,30 @@ class item_closing_balance extends item_binary {
         //
         //We check and return the complete union of all items
         return $this->chk($sql);
+    }
+    
+     //Unposting of closing balances removes the last posted records except
+     //those that are initially loaded. That is primary data -- not derived
+    function unpost() {
+        //
+        $this->query(
+            "delete "
+                //
+                //From the closing balance table
+                . "closing_balance.* "
+            . "from "
+                //
+                . "closing_balance "
+                //
+                //Bring in the last invoice; yes you are unposting the last
+                //posted case closing balance. 
+                . "inner join ({$this->record->invoice->last_invoice()}) as last_invoice on "
+                    . "closing_balance.invoice = last_invoice.invoice "
+            //
+            //Exclude the initial balances            
+            . "where "
+                . "not (closing_balance.initial)"
+        );       
     }
     
 }
