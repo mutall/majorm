@@ -39,7 +39,8 @@ class report_majorm extends report{
     }
 }
 
-//A poster, for genartaing ad managing new invoices
+//A poster, for generating and managing new invoices (which are then
+//posted to grow the database)
 class poster_majorm extends poster{
     //
     public function __construct() {
@@ -66,8 +67,7 @@ class emailer_majorm extends emailer{
     function __construct() {
         parent::__construct();
         //
-        //Add the cc's.
-        $this->AddCC('njuguna27@gmail.com');
+        //Add the vendors email address and copy to teh assistant.
         $this->AddCC('peterkmuraya@gmail.com');
     }
     
@@ -105,8 +105,8 @@ class item_water extends item_binary{
     }
     
     
-    //Returns that water consumption to be charged to a client. This is a most
-    //basic calculation for water vendors
+    //Returns that water consumption to be charged to a client. This is one of
+    //the most importnt calculations for water vendors.
     function detailed_poster($parametrized=true){
         //
         //Assuming previous value is not null.....
@@ -165,19 +165,20 @@ class item_water extends item_binary{
                 //This process is driven by water connections
                 ."wconnection "
                 //
-                //Bring in the venor-- who determines the water price
+                //Bring in the vendor-- who determines the water price
                 . "inner join client on wconnection.client = client.client "
                 . "inner join vendor on client.vendor = vendor.vendor "
                 //
-                //Extend the driver to allow calculations of water consumption
+                //Extend the driver water connecton to support calculation of 
+                //water consumption.
                 //
-                    //Add the previous reading in the current period
-                    . "left join ({$this->prev_reading()}) as prev on "
-                        . "prev.wconnection = wconnection.wconnection "
-                    //
-                    //Add the current reading in the current period
-                    . " left join ({$this->curr_reading()}) as curr on "
-                        . "curr.wconnection = wconnection.wconnection "
+                //Add the previous reading in the current period
+                . "left join ({$this->prev_reading()}) as prev on "
+                    . "prev.wconnection = wconnection.wconnection "
+                //
+                //Add the current reading in the current period
+                . "left join ({$this->curr_reading()}) as curr on "
+                    . "curr.wconnection = wconnection.wconnection "
             //  
             //Add the various constraints            
             . "where "
@@ -185,7 +186,7 @@ class item_water extends item_binary{
                 //Apply the client parametrized constraint, if requested        
                 . ($parametrized ? "wconnection.client = :driver ": "true ")
                 //
-                //Only activ connections are considred
+                //Only active connections are considred
                 ."and wconnection.end_date is null "            
         );
     }

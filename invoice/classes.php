@@ -625,21 +625,65 @@ class layout_summary_detail extends layout_label {
 
 
     
-//A layout suitable for the thermal printer. Srings are padded as required
+//A layout suitable for the thermal printer. Strings are padded as required
 class layout_thermal extends layout_label {
     //
-    //Width limit of the thermal printer
+    //Total width limit of the thermal printer
     const TOTAL_WIDTH = 32;
     
-    const ITEM_WIDTH = 7;
+    const ITEM_WIDTH = 3;
     const FIELD_WIDTH = 13;
     //
     //The character to used for padding
     const PADCHAR=".";
+    
+    //Place for holding the text of a page
+    public $page;
+    //
+    //Holder for all the pages of this layout
+    public $pages;
         
     function __construct(){
         parent::__construct();
     }
+    
+    //
+    //Displays the thermal "table" tag (for a tabular lyout) and save the invoice
+    //for further references
+    function open_table(invoice $invoice){
+        //
+        //Save the invoive for further references
+        $this->invoice=$invoice;
+        //
+        //Initialize the thermal pages to an empty array
+        $this->pages = [];
+    }
+  
+    //
+    //Closing the table of a therl output simply echos the json version
+    function close_table(){
+        //
+        header("Content-Type:application/json");
+        echo json_encode($this->pages);
+        
+    }
+
+    //
+    //Opening a thermal percord simply initialiss a page (text) collector
+    function open_record(record $record){
+       //
+        //Save the record so that we can make references within it
+        $this->record=$record;
+        //
+        $this->page = "";
+    }
+    
+    //
+    //Closing a record pushes the record page to teh invoice pages
+    function close_record(){
+        $this->pages[] = $this->page;
+    }
+
     
     //Show the given record in a label layout. Thisis an example
     //Opening balance   Date:2019-05-08     200
@@ -652,65 +696,78 @@ class layout_thermal extends layout_label {
     //This method will be extended to support the thermal printer
     function display_record(){
         //
-        //The data to be displayed will come from the specified level, assuming
-        //that the record property has been set using the open tag
+        //The data to be displayed will come from the invoice level, assuming
+        //that the record property has been set using the open tag.
         $level = $this->record->invoice->level;
         //
-        //Visit all the items of the record being output
+        //Visit all the items of the record and display each one of them
         foreach($this->record->items as $item){
+                        
             //
             //Use the requested statement to drive this dislay
             $statement = $item->statements[$level];
             //
-            //Get the fields to be shown
-            $fields = $statement->get_show_fields();
+            //Display the statement
+            $this->display_statement($statement);
+        }
+        
+    }
+    
+    //Collect the output from the given statement fit for thermal printing
+    function display_statement(statement $statement){
+        //
+        //Get the statement's fields to be displayed. Not all fields need 
+        //to b displayed, e.g., primary and foreign keys.
+        $fields = $statement->get_show_fields();
+        //
+        //Loop through all the pre-fetched result rows of the statement being 
+        //displayed. 
+        foreach($statement->results as $row){
             //
-            //Loop through all the the resulting records. 
-            foreach($statement->results as $row){
+            //Indicate that this is the first row, as it needs to be output 
+            //specially
+            $first_row = true;
+            //
+            //Loop through all the fields. We need to know when we are 
+            //outputing the first field, so that we can row-wise span the item 
+            //as needed
+            foreach($fields as $field){
                 //
-                //Set the first row indicator to true
-                $first_row = true;
-                //
-                //Loop through all the fields. We need to know when we are 
-                //outputing teh fis field, so that we can row-wise span the item 
-                //as needed
-                foreach($fields as $field){
+                //Ouput the item name on conditon that it is the first row
+                if ($first_row){
                     //
-                    //Ouput the item name on conditon that it is the first field
-                    if ($first_row){
-                        //
-                        //Fit the item name to the desired width
-                        echo $item->name;
-                        echo "\n";
-                        //
-                        //With space to the desired with
-                        echo $this->fit(" ", self::ITEM_WIDTH, " ");
-                    }else{
-                        //
-                        //With space to the desired with
-                        echo $this->fit(" ", self::ITEM_WIDTH, " ");
-                    }
+                    //The first field in an item can occuppy as musch space as
+                    //it wants. Prefix it with a new line spacing. Note the 
+                    //double slash
+                    $this->page .= "\\n".$statement->item->name."\\n";
+                }else{
+                    //All othere subsequent foeld o a sttaement must be fitted
+                    //to teh desired space
                     //
-                    //Fit the field name to the desired width
-                    echo $this->fit($field->name, self::FIELD_WIDTH, ".");
-                    //
-                    //The data width must be truncated to $data_with characatrs
-                    $data_width = self::TOTAL_WIDTH - (self::ITEM_WIDTH + self::FIELD_WIDTH);
-                    //
-                    //Output the value, truncating as necssary
-                    echo substr($row[$field->name], 0, $data_width);
-                    
-                    //
-                    //Close the output row
-                    echo "\n";    
-                    //
-                    //Reset the first row, as subsequent rows cannot be the first
-                    //row
-                    $first_row = false;
+                    //With space to the desired with
+                    $this->page .= $this->fit(" ", self::ITEM_WIDTH, " ");
                 }
+                //
+                //Fit the field name to the desired width
+                $this->page .=  $this->fit($field->name, self::FIELD_WIDTH, ".");
+                //
+                //The data width must be truncated to $data_with characatrrs
+                $data_width = self::TOTAL_WIDTH - (self::ITEM_WIDTH + self::FIELD_WIDTH);
+                //
+                //Output the value, truncating as necssary
+                $this->page .= substr($row[$field->name], 0, $data_width);
+                //
+                //Close the output row
+                $this->page .= "\\n";    
+                //
+                //Reset the first row, as subsequent rows cannot be the first
+                //row
+                $first_row = false;
             }
         }
-    }
+}    
+            
+    
     
     //Fit teh given string to the given field width -- trimming or padding where 
     //where necessary
@@ -1176,7 +1233,7 @@ abstract class page {
 
                     </body>
                 </html>
-            <?php
+                <?php
             //
             //Styling is not required
             }else{
@@ -1329,21 +1386,23 @@ abstract class invoice extends page {
         //given arguments
         $this->initialize($layout, $level);
         //
-        //Retrieve the data that drives th display
+        //Retrieve the data that drives the display
         $results = $this->query();
         //
-        //Now show the data, modelled along a tabular layout
+        //Now display the data, modelled along a tabular layout
         //
-        //Open the main report tag, e.g., <table> for a tabular layout. 
+        //Open the main report tag, e.g., <table> for a tabular layout. For 
+        //thermal print, this initializesa new property -- json 
         $this->layout->open_table($this);
         //
-        //Show the header of this report; this is relevant for tabular layouts only.
+        //Show the header of this report; this is relevant for tabular layouts 
+        //only.
         $this->layout->display_header();
         //
         //Step thorugh the driver table records and display each one of them.
         while ($result = $results->fetch()) {
             //
-            //Populate the this invoice's record with data to be displayed
+            //Populate this invoice's record with data to be displayed
             $this->record->populate($result);
             //
             //Display this invoice's record in the required (invoice) layout and 
@@ -1351,7 +1410,8 @@ abstract class invoice extends page {
             $this->record->display();
         }
         //
-        //Close the main report tag, e.g., </table>
+        //Close the main report tag, e.g., </table>. For a jsoon layout this
+        //echos the json property
         $this->layout->close_table();
     }
     
@@ -1556,27 +1616,26 @@ abstract class record {
         
     }
     
-    //Display this record according to the invoice's requests, e.g., level of
-    //detail, form layout, etc., all of which are specified during request for
-    //invoice display
+    //Display this record according to the underlying invoice's requests, e.g., 
+    //level of detail, form layout, etc., all of which are specified during 
+    //request for invoice display
     function display(){//record
         //
         //Get the underlying layout (from this record's invoce)
         $layout = $this->invoice->layout;
         //
-        //Determine if the record needs to be displayed or not. Why is this 
-        //important??
-        //
-        //It does. Do it.
-        //
-        //Open the record (tag) plus all the attributes of the invoice
+        //Open the record (tag) plus all the attributes of the invoice. For 
+        //thermal princ, this initializes a new json "record" of this record
         $layout->open_record($this);
         //
         //Display the record; this can be a simple tabular layout, label layout 
-        //or a much more complex layout, e.g., layout_mutall
+        //or a much more complex layout, e.g., layout_mutall. Note that a layout 
+        //can display many types of objects -- henc the more descriptive name,
+        //layout::dislay_record rather than simply layout::display(). 
         $layout->display_record();
         //
-        //Close the record (tag) -- depending on the layout.
+        //Close the record (tag) -- depending on the layout. For thermal print
+        //layout simply pushes a json record to the json "table"
         $layout->close_record();
     }
     
@@ -1951,9 +2010,9 @@ class statement{
     }
 
     
-    //Display this statement's data depending on whether its result yields
-    //a single record, multiple records or none. Single records are shown 
-    //in a labeld fashion; multiple records as a table. 
+    //Display this statement (for tabular or label layouts) depending on whether 
+    //its result yields a single record, multiple records or none. Single 
+    //records are shown in a labeled fashion; multiple records as a table. 
     //table
     function display(){//statement    
         //

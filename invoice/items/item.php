@@ -98,17 +98,6 @@ abstract class item {
         $this->statements["summary"] = new statement($this, $this->summary(true));
     }
     
-    //
-    //Returns the cuoff period of this item. 
-    //By default, rent and service charges
-    //are charged in advance, so their cutoff period is $n. Expense are from 
-    //previous period, so thoer cuoff period is $n-1.  Closing 
-    //balances is associated with the next period, i.e., $n+1
-    function cutoff($n=0){
-        //
-        return $this->record->invoice->cutoff($n);
-    }
-    
     //Display the data of an item -- depending on the underlying invoice's layout 
     //specification 
     function display(){//item

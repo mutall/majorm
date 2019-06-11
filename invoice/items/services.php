@@ -71,7 +71,7 @@ class item_service extends item_binary {
         //
         //b) when there is no subscription and the service is automatically 
         //charged...
-        $cb = "subscription.subscription is null and service.auto "; 
+        $cb = "subscription.subscription is null and service.is_auto "; 
         //
         //...then charge the same as the service price
         $b = "service.price ";
@@ -83,6 +83,9 @@ class item_service extends item_binary {
             "SELECT "
                 //Client Messages to report:- 
                     ."service.name, "
+                    //
+                    //Indicate if ita an autoamtic service or not
+                    ."service.is_auto, "
                     //
                     //Identify the water connection 
                     . "wconnection.meter_no, "

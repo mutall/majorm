@@ -185,7 +185,7 @@ class item_closing_balance extends item_binary {
             //
             //Exclude the initial balances            
             . "where "
-                . "not (closing_balance.initial)"
+                . "not (closing_balance.is_initial)"
         );       
     }
     

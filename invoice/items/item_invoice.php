@@ -197,7 +197,7 @@ class item_invoice extends item_binary{
             //
             //Exclude invoices linked to the initial balances            
             . "where "
-                . "not (closing_balance.initial)"
+                . "not (closing_balance.is_initial)"
         );       
     }
     
